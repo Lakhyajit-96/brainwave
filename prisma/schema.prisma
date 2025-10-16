@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?
+  name          String?
+  avatar        String?
+  provider      String    @default("local") // local, google
+  providerId    String?
+  role          Role      @default(USER)
+  subscription  Subscription?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  contacts      Contact[]
+  aiChats       AIChat[]
+  analytics     Analytics[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Subscription {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            Plan     @default(FREE)
+  status          SubscriptionStatus @default(ACTIVE)
+  paypalSubscriptionId String?
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payments        Payment[]
+}
+
+enum Plan {
+  FREE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount          Float
+  currency        String   @default("USD")
+  status          PaymentStatus
+  paypalOrderId   String?
+  paypalPayerId   String?
+  createdAt       DateTime @default(now())
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  subject   String?
+  message   String
+  status    ContactStatus @default(NEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ContactStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+model AIChat {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt    String
+  response  String
+  model     String   @default("gpt-4")
+  tokens    Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Analytics {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event     String
+  page      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  
+  @@index([event])
+  @@index([createdAt])
+}
+
+model Waitlist {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  source    String?
+  status    WaitlistStatus @default(PENDING)
+  createdAt DateTime @default(now())
+}
+
+enum WaitlistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Content {
+  id          String   @id @default(uuid())
+  type        String   // hero, feature, testimonial, etc.
+  title       String?
+  description String?
+  imageUrl    String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([type])
+  @@index([order])
+}
